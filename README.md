@@ -1,10 +1,12 @@
 # Etsy PHP SDK
 A PHP SDK for the Etsy API v3.
 
-This package is still in development.
+**Major update on the 13th July 2024. This fixed all major issues and adds resources for recent additions to the API. If you are upgrading from a version prior to this - consider the whole thing to be breaking. There is no upgrade path and you will need to review all your code.**
+
+Proper documentation still to come. Want to write it for me? I'll buy you an iced latte.
 
 ## Requirements
-PHP 7.1 or greater.
+PHP 8 or greater.
 
 ## Install
 Install the package using composer.
@@ -12,10 +14,16 @@ Install the package using composer.
 composer require rhysnhall/etsy-php-sdk
 ```
 
-Include the OAuth client and Etsy class.
+Include the Etsy class.
 ```php
 use Etsy\Etsy;
-use Etsy\OAuth\Client;
+
+$etsy = new Etsy(
+  $client_id,
+  $access_token
+);
+
+// Do the Etsy things.
 ```
 
 ## Usage
@@ -25,7 +33,7 @@ The Etsy API uses OAuth 2.0 authentication. You can read more about authenticati
 
 The first step in OAuth2 is to request an OAuth token. You will need an existing App API key which you can obtained by registering an app [here](https://www.etsy.com/developers/register).
 ```php
-$client = new Etsy\OAuth\Client($api_key);
+$client = new Etsy\OAuth\Client($client_id);
 ```
 
 Generate a URL to redirect the user to authorize access to your app.
@@ -89,7 +97,7 @@ You'll be provided with both an access token and a refresh token. The access tok
 
 #### Refreshing your token
 
-You can refresh your authorization token using the refresh token that was previously provided. This will provide you with a new valid access token and another refresh token.
+You can refresh your authorization token (even after it has expired) using the refresh token that was previously provided. This will provide you with a new valid access token and another refresh token.
 
 ```php
 [$access_token, $refresh_token] = $client->refreshAccessToken($refresh_token);
@@ -107,35 +115,116 @@ This will provide you with a brand new set of OAuth2 access and refresh tokens.
 
 ### Basic use
 
-Create a new instance of the Etsy class using your App API key and a user's access token.
+Create a new instance of the Etsy class using your App API key and a user's access token. **You must always initialize the Etsy resource before calling any resources**.
 
 ```php
-$etsy = new Etsy\Etsy($api_key, $access_token);
+use Etsy\Etsy;
+use Etsy\Resources\User;
 
-// Get user.
-$user = $etsy->getUser();
+$etsy = new Etsy($apiKey, $accessToken);
 
-// Get shop.
-$shop = $user->getShop();
+// Get the authenticated user.
+$user = User::me();
 
-// Update shop.
-$shop->update([
-  'title' => 'My exciting shop!'
-]);
+// Get the users shop.
+$shop = $user->shop();
 ```
 
-###### Collections
+#### Resources
+Most calls will return a `Resource`. Resources contain a number of methods that streamline your interaction with the Etsy API.
+```php
+// Get a Listing Resource
+$listing = \Etsy\Resources\Listing::get($shopId);
+```
+
+Resources contain the API response from Etsy as properties.
+```php
+$listingTitle = $listing->title;
+```
+
+##### Associations
+Resources will return associations as their respective Resource when appropriate. For example the bellow call will return the `shop` property as an instance of `Etsy\Resources\Shop`.
+```php
+$shop = $listing->shop;
+```
+
+##### `toJson`
+The `toJson` method will return the Resource as a JSON encoded object.
+```php
+$json = $listing->toJson();
+```
+
+##### `toArray`
+The `toArray` method will return the Resource as an array.
+```php
+$array = $listing->toArray();
+```
+
+#### Collections
 When there is more than one result a collection will be returned.
 ```php
-$reviews = $shop->getReviews();
+$reviews = Review::all();
+```
 
-// Get first review.
-$first = $reviews->first();
+Results are stored as an array of `Resource` the `data` property of the collection.
+```php
+$firstReview = $reviews->data[0];
+```
 
+Collections contain a handful of useful methods.
+
+##### `first`
+Get the first item in the collection.
+```php
+$firstReview = $reviews->first();
+```
+
+##### `count`
+Get the number of results in the collection. Not be confused with the `count` property which displays the number of results in a full Etsy resource.
+```php
+$count = $reviews->count();
+```
+
+##### `append`
+Append a property to each item in the collection.
+```php
+$reviews->append(['shop_id' => $shopId]);
+```
+
+##### `paginate`
+Most Etsy methods are capped at 100 results per call. You can use the `paginate` method to get more results than this (up to 500 results).
+```php
 // Get 100 results using pagination.
-foreach($reviews->paginate(100) as $review) {
+foreach($reviews->paginate(200) as $review) {
   ...
 }
+```
+
+##### `toJson`
+Returns the items in the collection as an array of JSON strings.
+```php
+$jsonArray = $reviews->toJson();
+```
+
+#### Direct Requests
+You can make direct requests to the Etsy API using the static `$client` property of the Etsy class.
+
+```php
+$response = Etsy::$client->get(
+  "/application/listings/active",
+  [
+    "limit" => 25
+  ]
+);
+```
+
+If you still want to use the Resources classes you can convert the response into a Resource.
+
+```php
+$listings = Etsy::getResource(
+  $response,
+  'Listing'
+);
 ```
 
 ---

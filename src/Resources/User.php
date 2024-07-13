@@ -2,8 +2,8 @@
 
 namespace Etsy\Resources;
 
+use Etsy\Etsy;
 use Etsy\Resource;
-use Etsy\Utils\Address as AddressUtil;
 use Etsy\Exception\SdkException;
 
 /**
@@ -15,33 +15,50 @@ use Etsy\Exception\SdkException;
 class User extends Resource {
 
   /**
-   * Get all addresses for this user.
-   *
-   * @param array $params
-   * @return Etsy\Collection[\Etsy\Resources\UserAddress]
+   * Get the profiles of the authenticated user or linked buyers.
+   * 
+   * @param ?string|int $user_id
+   * @return Etsy\Resources\User
    */
-  public function getAddresses(array $params = []) {
-    return $this->request(
+  public static function get(
+    string|int $user_id = null
+  ): ?\Etsy\Resources\User {
+    if(!$user_id) {
+      $user_id = self::me()->user_id ?? null;
+    }
+    return self::request(
       "GET",
-      "/application/user/addresses",
-      "UserAddress",
-      $params
+      "/application/users/{$user_id}",
+      "User"
     );
   }
 
   /**
-   * Gets a single address for this user.
-   *
-   * @NOTE this endpoint is not yet active.
-   *
-   * @param integer/string $address_id
-   * @return Etsy\Resources\UserAddress
+   * Get basic info of the user making the request.
+   * 
+   * @return ?array
    */
-  public function getAddress($address_id) {
-    return $this->request(
+  public static function me(): ?\stdClass {
+    $user = Etsy::$client->get("/application/users/me");
+    return isset($user->code) && $user->code == 404 ? null : $user;
+  }
+
+  /**
+   * Get the shop for a specific user.
+   * 
+   * @param int $user_id
+   * @return ?Etsy\Resources\Shop
+   */
+  public static function getShop(
+    int $user_id = null
+  ): ?\Etsy\Resources\Shop {
+    if(!$user_id) {
+      $user_id = self::me()->user_id ?? null;
+    }
+    return self::request(
       "GET",
-      "/application/user/addresses/{$address_id}",
-      "UserAddress"
+      "/application/users/{$user_id}/shops",
+      "Shop"
     );
   }
 
@@ -50,12 +67,8 @@ class User extends Resource {
    *
    * @return Etsy\Resources\Shop
    */
-  public function getShop() {
-    return $this->request(
-      "GET",
-      "/application/users/{$this->user_id}/shops",
-      "Shop"
-    );
+  public function shop(): ?\Etsy\Resources\Shop {
+    return self::getShop($this->user_id);
   }
 
 }

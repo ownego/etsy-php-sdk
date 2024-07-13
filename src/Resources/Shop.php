@@ -3,8 +3,23 @@
 namespace Etsy\Resources;
 
 use Etsy\Resource;
-use Etsy\Exception\SdkException;
 use Etsy\Utils\Date;
+use Etsy\Exception\{
+  SdkException,
+  ApiException
+};
+use Etsy\Resources\{
+  Listing,
+  ProductionPartner,
+  ShopSection,
+  ReturnPolicy,
+  ShippingProfile,
+  Review,
+  Receipt,
+  LedgerEntry,
+  Payment,
+  Transaction
+};
 
 /**
  * Shop resource class. Represents a Etsy user's shop.
@@ -13,14 +28,109 @@ use Etsy\Utils\Date;
  * @author Rhys Hall hello@rhyshall.com
  */
 class Shop extends Resource {
+  
+  /**
+   * @var array
+   */
+  protected $_saveable = [
+    'title',
+    'announcement',
+    'sale_message',
+    'digital_sale_message',
+    'policy_additional'
+  ];
 
   /**
-   * Update the shop.
+   * Gets an Etsy shop.
+   * 
+   * @param int $shop_id
+   * @return ?Etsy\Resources\Shop
+   */
+  public static function get(
+    int $shop_id
+  ): ?\Etsy\Resources\Shop {
+    return self::request(
+      "GET",
+      "/application/shops/{$shop_id}",
+      "Shop"
+    );
+  }
+
+  /**
+   * Updates a shop.
+   * 
+   * @param int $shop_id
+   * @param array $data
+   * @return ?Etsy\Resources\Shop
+   */
+  public static function update(
+    int $shop_id,
+    array $data
+  ): ?\Etsy\Resources\Shop {
+    return self::request(
+      'PUT',
+      "/application/shops/{$shop_id}",
+      "Shop",
+      $data
+    );
+  }
+
+  /**
+   * Search for shops.
+   * 
+   * @param string $keyword
+   * @param array $params
+   * @return Etsy\Collection[Etsy\Resources\Shop]
+   */
+  public static function all(
+    string $keyword,
+    array $params = []
+  ): \Etsy\Collection {
+    if(!strlen(trim($keyword))) {
+      throw new ApiException("You must specify a keyword when searching for Etsy shops.");
+    }
+    $params['shop_name'] = $keyword;
+    return self::request(
+      'GET',
+      "/application/shops",
+      "Shop",
+      $params
+    );
+  }
+
+  /**
+   * Get a count of all shops.
+   * 
+   * @param string $keyword
+   * @param array $params
+   * @return int
+   */
+  public static function count(
+    string $keyword,
+    array $params = []
+  ): int {
+    $result = self::all($keyword, $params);
+    if(!$result || !isset($result->count)) {
+      return 0;
+    }
+    return $result->count;
+  }
+
+  /**
+   * Saves updates to the current shop.
    *
    * @param array $data
    * @return Etsy\Resources\Shop
    */
-  public function update(array $data) {
+  public function save(
+    ?array $data = null
+  ): \Etsy\Resources\Shop {
+    if(!$data) {
+      $data = $this->getSaveData();
+    }
+    if(count($data) == 0) {
+      return $this;
+    }
     return $this->updateRequest(
       "/application/shops/{$this->shop_id}",
       $data
@@ -28,338 +138,195 @@ class Shop extends Resource {
   }
 
   /**
+   * Get all listings for the shop.
+   * 
+   * @param array $params
+   * @return Etsy\Collection[Etsy\Resources\Listing]
+   */
+  public function listings(
+    array $params = []
+  ): \Etsy\Collection {
+    return Listing::allByShop($this->shop_id, $params);
+  }
+
+  /**
+   * Get all active listings for the shop.
+   * 
+   * @param array $params
+   * @return Etsy\Collection[Etsy\Resources\Listing]
+   */
+  public function activeListings(
+    array $params = []
+  ): \Etsy\Collection {
+    return Listing::allActiveByShop($this->shop_id, $params);
+  }
+
+  /**
+   * Get all featured listings for the shop.
+   * 
+   * @param array $params
+   * @return Etsy\Collection[Etsy\Resources\Listing]
+   */
+  public function featuedListings(
+    array $params = []
+  ): \Etsy\Collection {
+    return Listing::allFeaturedByShop($this->shop_id, $params);
+  }
+
+  /**
+   * Get all production partners for the shop.
+   * 
+   * @return Etsy\Collection[Etsy\Resources\ProductionPartner]
+   */
+  public function productionPartners(): \Etsy\Collection {
+    return ProductionPartner::all($this->shop_id);
+  }
+
+  /**
    * Get all sections for the shop.
-   *
-   * @param array $params
-   * @return \Etsy\Collection
+   * 
+   * @return Etsy\Collection[Etsy\Resources\ShopSection]
    */
-  public function getSections($params = []) {
-    return $this->request(
-      "GET",
-      "/application/shops/{$this->shop_id}/sections",
-      "ShopSection",
-      $params
-    )
-      ->append(['shop_id' => $this->shop_id]);
+  public function sections(): \Etsy\Collection {
+    return ShopSection::all($this->shop_id);
   }
 
   /**
-   * Get a specific shop section.
-   *
-   * @param integer|string $section_id
-   * @return \Etsy\Resources\ShopSection
+   * Get a specific section within the shop.
+   * 
+   * @param int $section_id
+   * @return Etsy\Resources\ShopSection
    */
-  public function getSection($section_id) {
-    $section = $this->request(
-      "GET",
-      "/application/shops/{$this->shop_id}/sections/{$section_id}",
-      "ShopSection"
-    );
-    if($section) {
-      $section->shop_id = $this->shop_id;
-    }
-    return $section;
+  public function section(
+    int $section_id
+  ): ?ShopSection {
+    return ShopSection::get($this->shop_id, $section_id);
   }
 
   /**
-   * Creates a new shop section.
-   *
-   * @param string $data
-   * @return \Etsy\Resources\ShopSection
+   * Get all return policies for the shop.
+   * 
+   * @return Etsy\Collection[Etsy\Resources\ReturnPolicy]
    */
-  public function createSection(string $title) {
-    if(!strlen(trim($title))) {
-      throw new SdkException("Section title cannot be blank.");
-    }
-    return $this->request(
-      "POST",
-      "/application/shops/{$this->shop_id}/sections",
-      "ShopSection",
-      ["title" => $title]
-    );
+  public function returnPolicies(): \Etsy\Collection {
+    return ReturnPolicy::all($this->shop_id);
   }
 
   /**
-   * Get all reviews for the shop.
-   *
-   * @param array $params
-   * @return Etsy\Collection[Etsy\Resources\Review]
+   * Get a specific return policy within the shop.
+   * 
+   * @param int $policy_id
+   * @return Etsy\Resources\ReturnPolicy
    */
-  public function getReviews(array $params = []) {
-    return $this->request(
-      "GET",
-      "/application/shops/{$this->shop_id}/reviews",
-      "Review",
-      $params
-    );
+  public function returnPolicy(
+    int $policy_id
+  ): ?ReturnPolicy {
+    return ReturnPolicy::get($this->shop_id, $policy_id);
   }
 
   /**
    * Get all shipping profiles for the shop.
-   *
+   * 
    * @return Etsy\Collection[Etsy\Resources\ShippingProfile]
    */
-  public function getShippingProfiles() {
-    $profiles = $this->request(
-      "GET",
-      "/application/shops/{$this->shop_id}/shipping-profiles",
-      "ShippingProfile"
-    )
-      ->append(['shop_id' => $this->shop_id]);
-    // Assign the shop ID to associated resources.
-    array_map(
-      (function($profile){
-        $this->assignShopIdToProfile($profile);
-      }),
-      $profiles->data
-    );
-    return $profiles;
+  public function shippingProfiles(): \Etsy\Collection {
+    return ShippingProfile::all($this->shop_id);
   }
 
   /**
-   * Gets a single shipping profile for the shop.
-   *
-   * @param integer|string $shipping_profile_id
+   * Get a specific shipping profile.
+   * 
+   * @param int $profile_id
    * @return Etsy\Resources\ShippingProfile
    */
-  public function getShippingProfile($shipping_profile_id) {
-    $profile = $this->request(
-      "GET",
-      "/application/shops/{$this->shop_id}/shipping-profiles/{$shipping_profile_id}",
-      "ShippingProfile"
-    );
-    // Assign the shop id to the profile and associated resources.
-    $this->assignShopIdToProfile($profile);
-    return $profile;
+  public function shippingProfile(
+    int $profile_id
+  ): ?ShippingProfile {
+    return ShippingProfile::get($this->shop_id, $profile_id);
   }
 
   /**
-   * Creates a new shipping profile for the shop.
-   *
-   * @link https://developers.etsy.com/documentation/reference/#operation/createShopShippingProfile
-   * @param array $data
-   * @return Etsy\Resources\ShippingProfile
+   * Get all reviews for the shop.
+   * 
+   * @param array $params
+   * @return \Etsy\Collection[Etsy\Resources\Review]
    */
-  public function createShippingProfile(array $data) {
-    $profile = $this->request(
-      "POST",
-      "/application/shops/{$this->shop_id}/shipping-profiles",
-      "ShippingProfile",
-      $data
-    );
-    // Assign the shop id to the profile and associated resources.
-    $this->assignShopIdToProfile($profile);
-    return $profile;
-  }
-
-  /**
-   * Assigns the shop ID to a shipping profile.
-   *
-   * @param Etsy\Resources\ShippingProfile $profile
-   * @return void
-   */
-  private function assignShopIdToProfile(
-    \Etsy\Resources\ShippingProfile $profile
-  ) {
-    $profile->shop_id = $this->shop_id;
-    array_map(
-      (function($destination) {
-        $destination->shop_id = $this->shop_id;
-      }),
-      ($profile->shipping_profile_destinations ?? [])
-    );
-    array_map(
-      (function($upgrade) {
-        $upgrade->shop_id = $this->shop_id;
-      }),
-      ($profile->shipping_profile_upgrades ?? [])
-    );
+  public function reviews(
+    array $params = []
+  ): \Etsy\Collection {
+    return Review::all($this->shop_id, $params);
   }
 
   /**
    * Get all receipts for the shop.
-   *
-   * @param array $params
+   * 
+   * @param array @params
    * @return Etsy\Collection[Etsy\Resources\Receipt]
    */
-  public function getReceipts(array $params = []) {
-    return $this->request(
-      "GET",
-      "/application/shops/{$this->shop_id}/receipts",
-      "Receipt",
-      $params
-    )
-      ->append(['shop_id' => $this->shop_id]);
-  }
-
-  /**
-   * Gets a single receipt for the shop.
-   *
-   * @param integer|string $receipt_id
-   * @return Etsy\Resources\Receipt
-   */
-  public function getReceipt($receipt_id) {
-    $receipt = $this->request(
-      "GET",
-      "/application/shops/{$this->shop_id}/receipts/{$receipt_id}",
-      "Receipt"
-    );
-    if($receipt) {
-      $receipt->shop_id = $this->shop_id;
-    }
-    return $receipt;
-  }
-
-  /**
-   * Get all transactions for the shop.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/getShopReceiptTransactionsByShop
-   * @param array $params
-   * @return Etsy\Collection[Etsy\Resources\Transaction]
-   */
-  public function getTransactions(array $params = []) {
-    return $this->request(
-      "GET",
-      "/application/shops/{$this->shop_id}/transactions",
-      "Transaction",
-      $params
-    );
-  }
-
-  /**
-   * Get a specific transaction for the shop.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/getShopReceiptTransaction
-   * @param integer|string $transaction_id
-   * @return Etsy\Resources\Transaction
-   */
-  public function getTransaction($transaction_id) {
-    return $this->request(
-      "GET",
-      "/application/shops/{$this->shop_id}/transactions/{$transaction_id}",
-      "Transaction"
-    );
-  }
-
-  /**
-   * Get all payment account ledger entries for the shop.
-   *
-   * @link https://developers.etsy.com/documentation/reference#tag/Ledger-Entry
-   * @param mixed $date_from
-   * @param mixed $date_to
-   * @param array $params
-   * @return Etsy\Collection[Etsy\Resources\LedgerEntry]
-   */
-  public function getLedgerEntries(
-    $date_from = false,
-    $date_to = false,
+  public function receipts(
     array $params = []
-  ) {
-    // Default period is 7 days.
-    if(!$date_from && !$date_to) {
-      $date_from = Date::now()->modify('-1 week')->getTimestamp();
-      $date_to = Date::now()->getTimestamp();
-    }
-    if($date_from instanceof \DateTime) {
-      $date_from = $date_from->getTimestamp();
-    }
-    if($date_to instanceof \DateTime) {
-      $date_to = $date_to->getTimestamp();
-    }
-    // We don't validate wether the string is a valid timestamp.
-    $params['min_created'] = $date_from;
-    $params['max_created'] = $date_to;
-    return $this->request(
-      "GET",
-      "/application/shops/{$this->shop_id}/payment-account/ledger-entries",
-      "LedgerEntry",
-      $params
-    )
-      ->append(['shop_id' => $this->shop_id]);
+  ): \Etsy\Collection {
+    return Receipt::all($this->shop_id, $params);
   }
 
   /**
-   * Get the specified payments for the shop.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/getPayments
-   * @param array $payment_ids
-   * @return Etsy\Collection[Etsy\Resources\Payment]
+   * Get a single receipt.
+   * 
+   * @param int $receipt_id
+   * @return \Etsy\Resources\Receipt
    */
-  public function getPayments(array $payment_ids = []) {
-    return $this->request(
-      "GET",
-      "/application/shops/{$this->shop_id}/payments",
-      "Payment",
-      ["payment_ids" => $payment_ids]
-    );
+  public function receipt(
+    int $receipt_id
+  ): ?Receipt {
+    return Receipt::get($this->shop_id, $receipt_id);
   }
 
   /**
-   * Creates a draft Etsy listing.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/createDraftListing
-   * @param array $data
-   * @return Etsy\Resources\Listing
-   */
-  public function createListing(array $data) {
-    $listing = $this->request(
-      "POST",
-      "/application/shops/{$this->shop_id}/listings",
-      "Listing",
-      $data
-    );
-    return $listing;
-  }
-
-  /**
-   * Get the listings for the shop. This method should be used when querying listings for your own shop.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/getListingsByShop
+   * Get all ledger entries for a shop.
+   * 
    * @param array $params
-   * @return Etsy\Collection[Etsy\Resources\Listing]
+   * @return \Etsy\Collection[\Etsy\Resources\LedgerEntry]
    */
-  public function getListings(array $params = []) {
-    $listings = $this->request(
-      "GET",
-      "/application/shops/{$this->shop_id}/listings",
-      "Listing",
-      $params
-    );
-    return $listings;
+  public function ledgerEntries(
+    array $params = []
+  ): \Etsy\Collection {
+    return LedgerEntry::all($this->shop_id, $params);
   }
 
   /**
-   * Get all active listings for a public shop. Use this method when querying listings for a public shop.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/findAllActiveListingsByShop
-   * @param array $params
-   * @return Etsy\Collection[Etsy\Resources\Listing]
+   * Get a single ledger entry.
+   * 
+   * @param int $ledger_entry_id
+   * @return Etsy\Resources\LedgerEntry
    */
-  public function getPublicListings(array $params = []) {
-    $listings = $this->request(
-      "GET",
-      "/application/shops/{$this->shop_id}/listings/active",
-      "Listing",
-      $params
-    );
-    return $listings;
+  public function ledgerEntry(
+    int $ledger_entry_id
+  ): ?LedgerEntry {
+    return LedgerEntry::get($this->shop_id, $ledger_entry_id);
   }
 
   /**
-   * Get the featured listings for the shop.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/getFeaturedListingsByShop
-   * @param array $params
-   * @return Etsy\Collection[Etsy\Resources\Listing]
+   * Get payments for the shop.
+   * 
+   * @param int|array $payment_ids
+   * @return \Etsy\Collection[\Etsy\Resources\Payment]
    */
-  public function getFeaturedListings(array $params = []) {
-    $listings = $this->request(
-      "GET",
-      "/application/shops/{$this->shop_id}/listings/featured",
-      "Listing",
-      $params
-    );
-    return $listings;
+  public function payments(
+    int|array $payment_ids
+  ): \Etsy\Collection {
+    return Payment::all($this->shop_id, $payment_ids);
+  }
+
+  /**
+   * Get transactions for the shop.
+   * 
+   * @param array $params
+   * @return \Etsy\Collection[\Etsy\Resources\Transaction]
+   */
+  public function transactions(
+    array $params = []
+  ): \Etsy\Collection {
+    return Transaction::all($this->shop_id, $params);
   }
 
 }

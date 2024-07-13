@@ -24,7 +24,17 @@ class Resource {
   /**
    * @var array
    */
+  protected $_saveable = [];
+
+  /**
+   * @var array
+   */
   protected $_properties = [];
+
+  /**
+   * @var array
+   */
+  private $_originalState = [];
 
   /**
    * Constructor method for the Resource class.
@@ -34,6 +44,8 @@ class Resource {
    */
   public function __construct($properties = false) {
     if($properties) {
+      $this->_properties = $properties;
+      $this->_originalState = $this->toArray();
       $properties = $this->renameProperties($properties);
       $properties = $this->linkAssociations($properties);
     }
@@ -90,6 +102,7 @@ class Resource {
    */
   protected function linkAssociations($properties) {
     foreach($this->_associations as $association => $resource) {
+      $association = strtolower($association);
       if(isset($properties->$association)) {
         if(is_array($properties->$association)) {
           $properties->$association = Etsy::createCollectionResources(
@@ -141,6 +154,7 @@ class Resource {
       );
     // Update the existing properties.
     $properties = get_object_vars($result)['_properties'];
+    $this->_originalState = $result->_originalState;
     foreach($properties as $property => $value) {
       if(isset($this->_properties->{$property})) {
         $this->_properties->{$property} = $value;
@@ -157,7 +171,7 @@ class Resource {
    * @param string $data
    * @return boolean
    */
-  protected function deleteRequest(string $url, array $data = []) {
+  protected static function deleteRequest(string $url, array $data = []) {
     $response = Etsy::$client->delete(
         $url,
         $data
@@ -174,7 +188,7 @@ class Resource {
    * @param array $params
    * @return Collection
    */
-  protected function request(
+  public static function request(
     string $method,
     string $url,
     string $resource,
@@ -218,6 +232,63 @@ class Resource {
       }
     }
     return $array;
+  }
+
+  /**
+   * Get the saveable data.
+   * 
+   * @return array
+   */
+  protected function getSaveData($patch = false) {
+    if($patch) {
+      $changed = $this->getChanged(
+        $this->toArray(),
+        $this->_originalState
+      );
+    }
+    else {
+      $changed = $this->toArray();
+    }
+    $data = [];
+    foreach($this->_saveable as $key) {
+      if(isset($changed[$key])) {
+        $data[$key] = $changed[$key];
+      }
+    }
+    return $data;
+  }
+
+  /**
+   * Get the properties which have changed.
+   * 
+   * @param array $arrayOne
+   * @param array @arrayTwo
+   * @return array
+   */
+  private function getChanged(
+    array $arrayOne, 
+    array $arrayTwo
+  ): array {
+    $changed = [];
+    foreach($arrayOne as $key => $value) {
+      if(array_key_exists($key, $arrayTwo)) {
+        if(is_array($value)) {
+          $recursiveChanged = self::getChanged($arrayTwo[$key], $value);
+          if(count($recursiveChanged)) {
+            $changed[$key] = $recursiveChanged;
+          }
+        }
+        else {
+          if($value != $arrayTwo[$key]) {
+            $changed[$key] = $value;
+          }
+        }
+      }
+      else {
+        $changed[$key] = $value;
+      }
+    }
+    return $changed;
   }
 
 }

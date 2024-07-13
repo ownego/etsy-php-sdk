@@ -4,6 +4,18 @@ namespace Etsy\Resources;
 
 use Etsy\Resource;
 use Etsy\Exception\ApiException;
+use Etsy\Resources\{
+  Review,
+  Transaction,
+  ListingProperty,
+  ListingFile,
+  ListingImage,
+  ListingVideo,
+  ListingVariationImage,
+  ListingInventory,
+  ListingProduct,
+  ListingTranslation
+};
 
 /**
  * Listing resource class. Represents an Etsy listing.
@@ -16,380 +28,526 @@ class Listing extends Resource {
   /**
    * @var array
    */
-  protected $_associations = [
-    "Shop" => "Shop",
-    "User" => "User",
-    "Images" => "Image"
+  protected $_saveable = [
+    'image_ids',
+    'title',
+    'description',
+    'materials',
+    'should_auto_renew',
+    'shipping_profile_id',
+    'return_policy_id',
+    'shop_section_id',
+    'item_weight',
+    'item_length',
+    'item_width',
+    'item_height',
+    'item_weight_unit',
+    'item_dimensions_unit',
+    'is_taxable',
+    'taxonomy_id',
+    'tags',
+    'who_made',
+    'when_made',
+    'featured_rank',
+    'is_personalizable',
+    'personalization_is_required',
+    'personalization_char_count_max',
+    'personalization_instructions',
+    'state',
+    'is_supply',
+    'production_partner_ids',
+    'type'
   ];
 
   /**
-   * Update the Etsy listing.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/updateListing
-   * @param array $data
-   * @return Etsy\Resources\Listing
+   * @var array
    */
-  public function update(array $data) {
-    return $this->updateRequest(
-      "/application/shops/{$this->shop_id}/listings/{$this->listing_id}",
+  protected $_associations = [
+    "Shop" => "Shop",
+    "User" => "User",
+    "Images" => "ListingImage"
+  ];
+
+  /**
+   * Get all active listings on Etsy.
+   * 
+   * @param array $params
+   * @return \Etsy\Collection[Etsy\Resources\Listing]
+   */
+  public static function all(
+    array $params = []
+  ): \Etsy\Collection {
+    return self::request(
+      "GET",
+      "/application/listings/active",
+      "Listing",
+      $params
+    );
+  }
+
+  /**
+   * Get all active listings on Etsy. Filtered by listing ID. Support upto 100 IDs.
+   * 
+   * @param array $params
+   * @return \Etsy\Collection[Etsy\Resources\Listing]
+   */
+  public static function allByIds(
+    string|array $listing_ids,
+    array $includes = []
+  ): \Etsy\Collection {
+    $params = [
+      'listing_ids' => $listing_ids
+    ];
+    if(count($includes) > 0) {
+      $params['includes'] = $includes;
+    }
+    return self::request(
+      "GET",
+      "/application/listings/batch",
+      "Listing",
+      $params
+    );
+  }
+
+  /**
+   * Get all listings for a shop.
+   * 
+   * @param int $shop_id
+   * @param array $params
+   * @return \Etsy\Collection[Etsy\Resources\Listing]
+   */
+  public static function allByShop(
+    int $shop_id,
+    array $params = []
+  ): \Etsy\Collection {
+    return self::request(
+      "GET",
+      "/application/shops/{$shop_id}/listings",
+      "Listing",
+      $params
+    );
+  }
+
+  /**
+   * Get all active listings for a shop.
+   * 
+   * @param int $shop_id
+   * @param array $params
+   * @return \Etsy\Collection[Etsy\Resources\Listing]
+   */
+  public static function allActiveByShop(
+    int $shop_id,
+    array $params = []
+  ): \Etsy\Collection {
+    return self::request(
+      "GET",
+      "/application/shops/{$shop_id}/listings/active",
+      "Listing",
+      $params
+    );
+  }
+
+  /**
+   * Get all featured listings for a shop.
+   * 
+   * @param int $shop_id
+   * @param array $params
+   * @return \Etsy\Collection[Etsy\Resources\Listing]
+   */
+  public static function allFeaturedByShop(
+    int $shop_id,
+    array $params = []
+  ): \Etsy\Collection {
+    return self::request(
+      "GET",
+      "/application/shops/{$shop_id}/listings/featured",
+      "Listing",
+      $params
+    );
+  }
+
+  /**
+   * Get all listings from a receipt.
+   * 
+   * @param int $shop_id
+   * @param int $receipt_id
+   * @param array $params
+   * @return \Etsy\Collection[Etsy\Resources\Listing]
+   */
+  public static function allByReceipt(
+    int $shop_id,
+    int $receipt_id,
+    array $params = []
+  ): \Etsy\Collection {
+    return self::request(
+      "GET",
+      "/application/shops/{$shop_id}/receipts/{$receipt_id}/listings",
+      "Listing",
+      $params
+    );
+  }
+
+  /**
+   * Get all the listings within a shop return policy.
+   * 
+   * @param int $shop_id
+   * @param int $policy_id
+   * @return \Etsy\Collection[\Etsy\Resources\Listing]
+   */
+  public static function allByReturnPolicy(
+    int $shop_id,
+    int $policy_id
+  ): \Etsy\Collection {
+    return self::request(
+      "GET",
+      "/application/shops/{$shop_id}/policies/return/{$policy_id}/listings",
+      "Listing"
+    );
+  }
+
+  /**
+   * Get all listings withing specified shop sections.
+   * 
+   * @param int $shop_id
+   * @param array|int $section_ids
+   * @param array $params
+   * @return \Etsy\Collection[\Etsy\Resources\Listing]
+   */
+  public static function allByShopSections(
+    int $shop_id,
+    array|int $section_ids,
+    array $params = []
+  ): \Etsy\Collection {
+    $params['shop_section_ids'] = $section_ids;
+    return self::request(
+      "GET",
+      "/application/shops/{$shop_id}/shop-sections/listings",
+      "Listing",
+      $params
+    );
+  }
+
+  /**
+   * Get a listing.
+   * 
+   * @param int $listing_id
+   * @param array $params
+   * @return \Etsy\Resources\Listing
+   */
+  public static function get(
+    int $listing_id,
+    array $params = []
+  ): ?\Etsy\Resources\Listing {
+    return self::request(
+      "GET",
+      "/application/listings/{$listing_id}",
+      "Listing",
+      $params
+    );
+  }
+
+  /**
+   * Create a draft Etsy listing.
+   * 
+   * @param int $shop_id
+   * @param array $data
+   * @return \Etsy\Resources\Listing
+   */
+  public static function create(
+    int $shop_id,
+    array $data
+  ): ?\Etsy\Resources\Listing {
+    return self::request(
+      "POST",
+      "/application/shops/{$shop_id}/listings",
+      "Listing",
       $data
     );
   }
 
   /**
-   * Delete the listing.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/deleteListing
-   * @return boolean
+   * Delete an Etsy listing.
+   * 
+   * @param int $listing_id
+   * @return bool
    */
-  public function delete() {
-    return $this->deleteRequest(
-      "/application/shops/{$this->shop_id}/listings/{$this->listing_id}"
+  public static function delete(
+    int $listing_id
+  ): bool {
+    return self::deleteRequest(
+      "/application/listings/{$listing_id}"
     );
   }
 
   /**
-   * Get the listing properties associated with the listing.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/getListingProperties
-   * @return Etsy\Collection[Etsy\Resources\ListingProperty]
+   * Updates an Etsy listing.
+   * 
+   * @param int $shop_id
+   * @param int $listing_id
+   * @param array $data
+   * @return \Etsy\Resources\Listing
    */
-  public function getListingProperties() {
-    return $this->request(
-      "GET",
-      "/application/shops/{$this->shop_id}/listings/{$this->listing_id}/properties",
-      "ListingProperty"
-    )
-      ->append([
-        'shop_id' => $this->shop_id,
-        'listing_id' => $this->listing_id
-      ]);
+  public static function update(
+    int $shop_id,
+    int $listing_id,
+    array $data
+  ): ?\Etsy\Resources\Listing {
+    return self::request(
+      "PATCH",
+      "/application/shops/{$shop_id}/listings/{$listing_id}",
+      "ListingProperty",
+      $data
+    );
   }
 
   /**
-   * Get a specific listing property.
-   *
-   * @NOTE This method is not ready for use and will return a 501 repsonse.
-   * @link https://developers.etsy.com/documentation/reference#operation/getListingProperty
-   * @param integer|string $property_id
-   * @return Etsy\Resources\ListingProperty
+   * Saves updates to the current listing.
+   * 
+   * @param array $data
+   * @return \Etsy\Resources\Listing
    */
-  public function getListingProperty($property_id) {
-    $listing_property = $this->request(
-      "GET",
-      "/application/listings/{$this->listing_id}/properties/{$property_id}",
-      "ListingProperty"
-    );
-    if($listing_property) {
-      $listing_property->shop_id = $this->shop_id;
-      $listing_property->listing_id = $this->listing_id;
+  public function save(
+    ?array $data = null
+  ): \Etsy\Resources\Listing {
+    if(!$data) {
+      $data = $this->getSaveData(true);
     }
-    return $listing_property;
+    if(count($data) == 0) {
+      return $this;
+    }
+    return $this->updateRequest(
+      "/application/shops/{$shop_id}/listings/{$listing_id}",
+      $data,
+      "PATCH"
+    );
   }
 
   /**
-   * Get the listing files associated with the listing.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/getAllListingFiles
-   * @return Etsy\Collection[Etsy\Resources\ListingFile]
+   * Get all reviews for the listing.
+   * 
+   * @param array $params
+   * @return \Etsy\Collection[Etsy\Resources\Review]
    */
-  public function getFiles() {
-    return $this->request(
-      "GET",
-      "/application/shops/{$this->shop_id}/listings/{$this->listing_id}/files",
-      "ListingFile"
-    )
-      ->append(["shop_id" => $this->shop_id]);
+  public function reviews(
+    array $params = []
+  ): \Etsy\Collection {
+    return Review::allByListing($this->listing_id, $params);
+  }
+
+  /**
+   * Get all transactions for the listing.
+   * 
+   * @param array @params
+   * @return \Etsy\Collection[Etsy\Resources\Transaction]
+   */
+  public function transactions(
+    array $params = []
+  ): \Etsy\Collection {
+    return Transaction::allByListing($this->shop_id, $this->listing_id, $params);
+  }
+
+  /**
+   * Get all properties for the listing.
+   * 
+   * @return \Etsy\Collection[Etsy\Resources\ListingProperty]
+   */
+  public function properties(): \Etsy\Collection {
+    return ListingProperty::all(
+      $this->shop_id,
+      $this->listing_id
+    );
+  }
+
+  /**
+   * Get all files for the listing.
+   * 
+   * @return \Etsy\Collection[Etsy\Resources\ListingFile]
+   */
+  public function files(): \Etsy\Collection {
+    return ListingFile::all(
+      $this->shop_id,
+      $this->listing_id
+    );
   }
 
   /**
    * Get a specific listing file.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/getListingFile
-   * @param integer|string $listing_file_id
-   * @return Etsy\Resources\ListingFile
+   * 
+   * @param int $file_id
+   * @return \Etsy\Resources\ListingFile
    */
-  public function getFile($listing_file_id) {
-    $listing_file = $this->request(
-      "GET",
-      "/application/shops/{$this->shop_id}/listings/{$this->listing_id}/files/{$listing_file_id}",
-      "ListingFile"
+  public function file(
+    int $file_id
+  ): ?\Etsy\Resources\ListingFile {
+    return ListingFile::get(
+      $this->shop_id,
+      $this->listing_id,
+      $file_id
     );
-    if($listing_file) {
-      $listing_file->shop_id = $this->shop_id;
-    }
-    return $listing_file;
   }
 
   /**
-   * Uploads a listing file.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/uploadListingFile
-   * @param resource $file
-   * @param string $name
-   * @param integer|string $rank
-   * @return Etsy\Resources\ListingFile
+   * Link a file to the listing.
+   * 
+   * @param int $file_id
+   * @param int $rank
+   * @return \Etsy\Resources\ListingFile
    */
-  public function uploadFile(
-    $file,
-    string $name,
-    $rank = 1
-  ) {
-    $data = [
-      'file' => $file,
-      'name' => $name,
-      'rank' => $rank
-    ];
-    $listing_file = $this->request(
-      "POST",
-      "/application/shops/{$this->shop_id}/listings/{$this->listing_id}/files",
-      "ListingFile",
-      $data
+  public function linkFile(
+    int $file_id,
+    int $rank = 1
+  ): ?\Etsy\Resources\ListingFile {
+    return ListingFile::create(
+      $this->shop_id,
+      $this->listing_id,
+      [
+        'listing_file_id' => $file_id,
+        'rank' => 1
+      ]
     );
-    if($listing_file) {
-      $listing_file->shop_id = $this->shop_id;
-    }
-    return $listing_file;
   }
 
   /**
-   * Links an existing file to the Listing.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/uploadListingFile
-   * @param integer|string $listing_file_id
-   * @param integer|string $rank
-   * @return Etsy\Resources\ListingFile
+   * Get the images for the listing.
+   * 
+   * @return \Etsy\Collection[\Etsy\Resources\ListingImage]
    */
-  public function linkFile($listing_file_id, $rank = 1) {
-    $data = [
-      'listing_file_id' => $listing_file_id,
-      'rank' => 1
-    ];
-    $listing_file = $this->request(
-      "POST",
-      "/application/shops/{$this->shop_id}/listings/{$this->listing_id}/files",
-      "ListingFile",
-      $data
+  public function images(): \Etsy\Collection {
+    return ListingImage::all(
+      $this->listing_id
     );
-    if($listing_file) {
-      $listing_file->shop_id = $this->shop_id;
-    }
-    return $listing_file;
-  }
-
-  /**
-   * Get the Listing Images for the listing.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/getListingImages
-   * @return Etsy\Collection[Etsy\Resources\ListingImage]
-   */
-  public function getImages() {
-    return $this->request(
-      "GET",
-      "/application/shops/{$this->shop_id}/listings/{$this->listing_id}/images",
-      "ListingImage"
-    )
-      ->append(["shop_id" => $this->shop_id]);
   }
 
   /**
    * Get a specific listing image.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/getListingImage
-   * @param integer|string $listing_image_id
-   * @return Etsy\Resources\ListingImage
+   * 
+   * @param int $image_id
+   * @return \Etsy\Resources\ListingImage
    */
-  public function getImage($listing_image_id) {
-    $listing_image = $this->request(
-      "GET",
-      "/application/shops/{$this->shop_id}/listings/{$this->listing_id}/images/{$listing_image_id}",
-      "ListingImage"
+  public function image(
+    int $image_id
+  ): ?\Etsy\Resources\ListingImage {
+    return ListingImage::get(
+      $this->listing_id,
+      $image_id
     );
-    if($listing_image) {
-      $listing_image->shop_id = $this->shop_id;
-    }
-    return $listing_image;
   }
 
   /**
-   * Upload a listing image.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/uploadListingImage
-   * @param resource $file
-   * @param string $name
-   * @param integer|string $rank
+   * Link an existing image to the listing.
+   * 
+   * @param int $image_id
    * @param array $options
-   * @return Etsy\Resources\ListingImage
-   */
-  public function uploadImage(
-    $file,
-    string $name,
-    $rank = 1,
-    array $options
-  ) {
-    $data = array_merge($options, [
-      'file' => $file,
-      'name' => $name,
-      'rank' => $rank
-    ]);
-    $listing_image = $this->request(
-      "POST",
-      "/application/shops/{$this->shop_id}/listings/{$this->listing_id}/images",
-      "ListingImage",
-      $data
-    );
-    if($listing_image) {
-      $listing_image->shop_id = $this->shop_id;
-    }
-    return $listing_image;
-  }
-
-  /**
-   * Links an existing image to the Listing.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/uploadListingImage
-   * @param integer|string $listing_file_id
-   * @param integer|string $rank
-   * @param array $options
+   * @return \Etsy\Resources\ListingImage
    */
   public function linkImage(
-    $listing_image_id,
-    $rank = 1,
-    array $options = []
-  ) {
-    // Attach the options.
-    $data = array_merge($options, [
-      'listing_image_id' => $listing_image_id,
-      'rank' => $rank
-    ]);
-    $listing_image = $this->request(
-      "POST",
-      "/application/shops/{$this->shop_id}/listings/{$this->listing_id}/images",
-      "ListingImage",
+    int $image_id,
+    $options = []
+  ): ?\Etsy\Resources\ListingImage {
+    $options['listing_image_id'] = $image_id;
+    return ListingImage::create(
+      $this->shop_id,
+      $this->listing_id,
+      $options
+    );
+  }
+
+  /**
+   * Get the variation images for the listing.
+   * 
+   * @return \Etsy\Collection[\Etsy\Resources\ListingVariationImage]
+   */
+  public function variationImages(): \Etsy\Collection {
+    return ListingVariationImage::all(
+      $this->shop_id,
+      $this->listing_id
+    );
+  }
+
+  /**
+   * Get the videos for the listing.
+   * 
+   * @return \Etsy\Collection[\Etsy\Resources\ListingVideo]
+   */
+  public function videos(): \Etsy\Collection {
+    return ListingVideo::all(
+      $this->listing_id
+    );
+  }
+
+  /**
+   * Get a specific listing image.
+   * 
+   * @param int $video_id
+   * @return \Etsy\Resources\ListingVideo
+   */
+  public function video(
+    int $video_id
+  ): ?\Etsy\Resources\ListingVideo {
+    return ListingVideo::get(
+      $this->listing_id,
+      $video_id
+    );
+  }
+
+  /**
+   * Link an existing image to the listing.
+   * 
+   * @param int $video_id
+   * @return \Etsy\Resources\ListingVideo
+   */
+  public function linkVideo(
+    int $video_id
+  ): ?\Etsy\Resources\ListingVideo {
+    $data['video_id'] = $video_id;
+    return ListingVideo::create(
+      $this->shop_id,
+      $this->listing_id,
       $data
     );
-    if($listing_image) {
-      $listing_image->shop_id = $this->shop_id;
-    }
-    return $listing_image;
   }
 
   /**
-   * Update the inventory for the listing.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/updateListingInventory
-   * @param array $data
-   * @return Etsy\Resources\ListingInventory
+   * Get the listing inventory.
+   * 
+   * @return \Etsy\Resources\ListingInventory
    */
-  public function updateInventory(array $data) {
-    $inventory = $this->request(
-      "PUT",
-      "/application/listings/{$this->listing_id}/inventory",
-      "ListingInventory",
-      $data
+  public function inventory(): ?\Etsy\Resources\ListingInventory {
+    return ListingInventory::get(
+      $this->listing_id
     );
-    // Assign the listing ID to associated inventory products.
-    array_map(
-      (function($product){
-        $product->listing_id = $this->listing_id;
-      }),
-      ($inventory->products ?? [])
-    );
-    return $inventory;
   }
 
   /**
-   * Get a specific product for a listing. Use this method to bypass going through the ListingInventory resource.
-   *
-   * @link https://developers.etsy.com/documentation/reference#tag/ShopListing-Product
-   * @param integer|string $product_id
-   * @return Etsy\Resources\ListingProduct
+   * Get a listing product.
+   * 
+   * @param int $product_id
+   * @return \Etsy\Resources\ListingProduct
    */
-  public function getProduct($product_id) {
-    $product = $this->request(
-      "GET",
-      "/application/listings/{$this->listing_id}/inventory/products/{$product_id}",
-      "ListingProduct"
+  public function product(
+    int $product_id
+  ): ?\Etsy\Resources\ListingProduct {
+    return ListingProduct::get(
+      $this->listing_id,
+      $product_id
     );
-    if($product) {
-      $product->listing_id = $this->listing_id;
-    }
-    return $product;
   }
 
   /**
-   * Get a translation for the listing in a specific language.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/getListingTranslation
+   * Get a listing translation.
+   * 
    * @param string $language
-   * @return Etsy\Resources\ListingTranslation
+   * @return \Etsy\Resources\ListingTranslation
    */
-  public function getTranslation(
+  public function translation(
     string $language
-  ) {
-    $translation = $this->request(
-      "GET",
-      "/application/shops/{$this->shop_id}/listings/{$this->listing_id}/translations/{$language}",
-      "ListingTranslation"
-    );
-    if($translation) {
-      $translation->shop_id = $this->shop_id;
-    }
-    return $translation;
-  }
-
-  /**
-   * Creates a listing translation.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/createListingTranslation
-   * @param string $language
-   * @param array $data
-   * @return Etsy\Resources\ListingTranslation
-   */
-  public function createTranslation(
-    string $language,
-    array $data
-  ) {
-    $translation = $this->request(
-      "POST",
-      "/application/shops/{$this->shop_id}/listings/{$this->listing_id}/translations/{$language}",
-      "ListingTranslation",
-      $data
-    );
-    if($translation) {
-      $translation->shop_id = $this->shop_id;
-    }
-    return $translation;
-  }
-
-  /**
-   * Gets variation images for the listing.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/getListingVariationImages
-   * @return Etsy\Collection[Etsy\Resources\ListingVariationImage]
-   */
-  public function getVariationImages() {
-    return $this->request(
-      "GET",
-      "/application/shops/{$this->shop_id}/listings/{$this->listing_id}/variation-images",
-      "ListingVariationImage"
+  ): ?\Etsy\Resources\ListingTranslation {
+    return ListingTranslation::get(
+      $this->shop_id,
+      $this->listing_id,
+      $language
     );
   }
 
-  /**
-   * Updates variation images for the listing. You MUST pass data for ALL variation images, including the ones you are not updating, as this method will override all existing variation images.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/updateVariationImages
-   * @param array $data
-   * @return Etsy\Collection[Etsy\Resources\ListingVariationImage]
-   */
-  public function updateVariationImages(array $data) {
-    return $this->request(
-      "POST",
-      "/application/shops/{$this->shop_id}/listings/{$this->listing_id}/variation-images",
-      "ListingVariationImage",
-      $data
-    );
-  }
 
 }

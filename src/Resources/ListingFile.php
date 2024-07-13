@@ -13,14 +13,79 @@ use Etsy\Resource;
 class ListingFile extends Resource {
 
   /**
-   * Delete the listing file.
+   * Delete a listing file.
    *
-   * @link https://developers.etsy.com/documentation/reference#operation/deleteListingFile
-   * @return boolean
+   * @param int $shop_id
+   * @param int $listing_id
+   * @param int $file_id
+   * @return bool
    */
-  public function delete() {
-    return $this->deleteRequest(
-      "/application/shops/{$this->shop_id}/listings/{$this->listing_id}/files/{$this->listing_file_id}"
+  public static function delete(
+    int $shop_id,
+    int $listing_id,
+    int $file_id
+  ): bool {
+    return self::deleteRequest(
+      "/application/shops/{$shop_id}/listings/{$listing_id}/files/{$file_id}"
+    );
+  }
+
+  /**
+   * Get a listing file.
+   * 
+   * @param int $shop_id
+   * @param int $listing_id
+   * @param int $file_id
+   * @return \Etsy\Resources\ListingFile
+   */
+  public static function get(
+    int $shop_id,
+    int $listing_id,
+    int $file_id
+  ): ?\Etsy\Resources\ListingFile {
+    return self::request(
+      "GET",
+      "/application/shops/{$shop_id}/listings/{$listing_id}/files/{$file_id}",
+      "ListingFile"
+    );
+  }
+
+  /**
+   * Get all files for a listing.
+   * 
+   * @param int $shop_id
+   * @param int $listing_id
+   * @return \Etsy\Collection[\Etsy\Resources\ListingFile]
+   */
+  public static function all(
+    int $shop_id,
+    int $listing_id
+  ): \Etsy\Collection {
+    return self::request(
+      "GET",
+      "/application/shops/{$shop_id}/listings/{$listing_id}/files",
+      "ListingFile"
+    );
+  }
+
+  /**
+   * Upload a listing file.
+   * 
+   * @param int $shop_id
+   * @param int $listing_id
+   * @param array $data
+   * @return \Etsy\Resources\ListingFile
+   */
+  public static function create(
+    int $shop_id,
+    int $listing_id,
+    array $data
+  ): ?\Etsy\Resources\ListingFile {
+    return self::request(
+      "POST",
+      "/application/shops/{$shop_id}/listings/{$listing_id}/files",
+      "ListingFile",
+      $data
     );
   }
 }

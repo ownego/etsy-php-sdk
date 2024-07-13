@@ -20,17 +20,40 @@ class ListingProduct extends Resource {
   ];
 
   /**
-   * Get a specific offering from the product.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/getListingOffering
-   * @param integer|string $product_offering_id
-   * @return Etsy\Resources\ListingOffering
+   * Get a listing product.
+   * 
+   * @param int $listing_id
+   * @param int $product_id
+   * @return \Etsy\Resources\ListingProduct
    */
-  public function getOffering($product_offering_id) {
-    return $this->request(
+  public static function get(
+    int $listing_id,
+    int $product_id
+  ): ?\Etsy\Resources\ListingProduct {
+    $product = self::request(
       "GET",
-      "/application/listings/{$this->listing_id}/products/{$this->product_id}/offerings/{$product_offering_id}",
-      "ListingOffering"
+      "/application/listings/{$listing_id}/inventory/products/{$product_id}",
+      "ListingProduct"
+    );
+    if($product) {
+      $product->listing_id = $listing_id;
+    }
+    return $product;
+  }
+
+  /**
+   * Get a specific listing offering.
+   * 
+   * @param int $offering_id
+   * @return \Etsy\Resources\ListingOffering
+   */
+  public function offering(
+    int $offering_id
+  ): ?\Etsy\Resources\ListingOffering {
+    return ListingOffering::get(
+      $this->listing_id,
+      $this->product_id,
+      $offering_id
     );
   }
 

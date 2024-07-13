@@ -21,13 +21,142 @@ class ShippingProfile extends Resource {
   ];
 
   /**
-   * Updates the shipping profile.
-   *
-   * @link https://developers.etsy.com/documentation/reference/#operation/updateShopShippingProfile
+   * @var array 
+   */
+  protected $_saveable = [
+    'title', 
+    'origin_country_iso',
+    'min_processing_time',
+    'max_processing_time',
+    'processing_time_unit',
+    'origin_postal_code'
+  ];
+
+
+  /**
+   * Get all shipping profiles for a shop.
+   * 
+   * @param int $shop_id
+   * @return Etsy\Collection[Etsy\Resources\ShippingProfile]
+   */
+  public static function all(
+    int $shop_id
+  ): \Etsy\Collection {
+    $profiles = self::request(
+      "GET",
+      "/application/shops/{$shop_id}/shipping-profiles",
+      "ShippingProfile"
+    );
+    array_map(
+      (function($profile) use($shop_id) {
+        $profile->assignShopIdToProfile($shop_id);
+      }),
+      $profiles->data
+    );
+    return $profiles;
+  }
+
+  /**
+   * Get a specifc shipping profile.
+   * 
+   * @param int $shop_id
+   * @param int $profile_id
+   * @return Etsy\Resources\ShippingProfile
+   */
+  public static function get(
+    int $shop_id,
+    int $profile_id
+  ): ?\Etsy\Resources\ShippingProfile {
+    $profile = self::request(
+      "GET",
+      "/application/shops/{$shop_id}/shipping-profiles/{$profile_id}",
+      "ShippingProfile"
+    );
+    if($profile) {
+      $profile->assignShopIdToProfile($shop_id);
+    }
+    return $profile;
+  }
+
+  /**
+   * Create a new shipping profile.
+   * 
+   * @param int $shop_id
    * @param array $data
    * @return Etsy\Resources\ShippingProfile
    */
-  public function update(array $data) {
+  public static function create(
+    int $shop_id,
+    array $data
+  ): ?\Etsy\Resources\ShippingProfile {
+    $profile = self::request(
+      "POST",
+      "/application/shops/{$shop_id}/shipping-profiles",
+      "ShippingProfile",
+      $data
+    );
+    if($profile) {
+      $profile->assignShopIdToProfile($shop_id);
+    }
+    return $profile;
+  }
+
+  /**
+   * Update a shipping profile.
+   * 
+   * @param int $shop_id
+   * @param int $profile_id
+   * @param array $data
+   * @return Etsy\Resources\ShippingProfile
+   */
+  public static function update(
+    int $shop_id,
+    int $profile_id,
+    array $data
+  ): ?\Etsy\Resources\ShippingProfile {
+    $profile = self::request(
+      "PUT",
+      "/application/shops/{$shop_id}/shipping-profiles/{$profile_id}",
+      "ShippingProfile",
+      $data
+    );
+    if($profile) {
+      $profile->assignShopIdToProfile($shop_id);
+    }
+    return $profile;
+  }
+
+  /**
+   * Deletes a shipping profile.
+   * 
+   * @param int $shop_id
+   * @param int $profile_id
+   * @return bool
+   */
+  public static function delete(
+    int $shop_id,
+    int $profile_id
+  ): bool {
+    return self::deleteRequest(
+      "/application/shops/{$shop_id}/shipping-profiles/{$profile_id}",
+    );
+  }
+
+  /**
+   * Saves updates to the current shipping profile.
+   *
+   * @param array $data
+   * @return Etsy\Resources\ShippingProfile
+   */
+  public function save(
+    ?array $data = null
+  ): \Etsy\Resources\ShippingProfile {
+    if(!$data) {
+      $data = $this->getSaveData();
+    }
+    if(count($data) == 0) {
+      return $this;
+    }
     return $this->updateRequest(
       "/application/shops/{$this->shop_id}/shipping-profiles/{$this->shipping_profile_id}",
       $data
@@ -35,57 +164,59 @@ class ShippingProfile extends Resource {
   }
 
   /**
-   * Delete the shipping profile.
-   *
-   * @link https://developers.etsy.com/documentation/reference/#operation/deleteShopShippingProfile
-   * @return boolean
+   * Get the shipping destinations for this profile.
+   * 
+   * @param array $params
+   * @return \Etsy\Collection[Etsy\Resources\ShippingDestination]
    */
-  public function delete() {
-    return $this->deleteRequest(
-      "/application/shops/{$this->shop_id}/shipping-profiles/{$this->shipping_profile_id}"
+  public function destinations(
+    array $params = []
+  ): \Etsy\Collection {
+    $destinations = ShippingDestination::all(
+      $this->shop_id,
+      $this->shipping_profile_id,
+      $params
     );
+    $this->shipping_profile_destinations = $destinations;
+    return $destinations;
   }
 
   /**
-   * Creates a new shipping destination.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/createShopShippingProfileDestination
-   * @param array $data
-   * @return Etsy\Resources\ShippingDestination
+   * Get the shipping upgrades for this profile.
+   * 
+   * @return \Etsy\Collection[Etsy\Resources\ShippingUpgrade]
    */
-  public function createShippingDestination($data) {
-    $destination =  $this->request(
-      "POST",
-      "/application/shops/{$this->shop_id}/shipping-profiles/{$this->shipping_profile_id}/destinations",
-      "ShippingDestination",
-      $data
+  public function upgrades(): \Etsy\Collection {
+    $upgrades = ShippingUpgrade::all(
+      $this->shop_id,
+      $this->shipping_profile_id
     );
-    // Add the shop ID property to the destination.
-    $destination->shop_id = $this->shop_id;
-    // Add the new shipping destination to the associated property.
-    $this->_properties->shipping_profile_destinations[] = $destination;
-    return $destination;
+    $this->shipping_profile_upgrades = $upgrades;
+    return $upgrades;
   }
 
   /**
-   * Creates a new shipping upgrade.
-   *
-   * @link https://developers.etsy.com/documentation/reference#operation/createShopShippingProfileUpgrade
-   * @param array $data
-   * @return Etsy\Resources\ShippingUpgrade
+   * Assigns the shop ID property to the profile and associations.
+   * 
+   * @param int $shop_id
+   * @return void
    */
-  public function createShippingUpgrade($data) {
-    $upgrade =  $this->request(
-      "POST",
-      "/application/shops/{$this->shop_id}/shipping-profiles/{$this->shipping_profile_id}/upgrades",
-      "ShippingUpgrade",
-      $data
+  private function assignShopIdToProfile(
+    int $shop_id
+  ) {
+    $this->shop_id = $shop_id;
+    array_map(
+      (function($destination) {
+        $destination->shop_id = $this->shop_id;
+      }),
+      ($this->shipping_profile_destinations ?? [])
     );
-    // Add the shop ID property to the destination.
-    $upgrade->shop_id = $this->shop_id;
-    // Add the new shipping upgrade to the associated property.
-    $this->_properties->shipping_profile_upgrades[] = $upgrade;
-    return $upgrade;
+    array_map(
+      (function($upgrade) {
+        $upgrade->shop_id = $this->shop_id;
+      }),
+      ($this->shipping_profile_upgrades ?? [])
+    );
   }
 
 }

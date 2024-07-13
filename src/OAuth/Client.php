@@ -40,6 +40,11 @@ class Client {
   protected $config = [];
 
   /**
+   * @var array
+   */
+  protected $headers = [];
+
+  /**
    * Create a new instance of Client.
    *
    * @param string $client_id
@@ -52,6 +57,7 @@ class Client {
       throw new OAuthException("No client ID found. A valid client ID is required.");
     }
     $this->client_id = $client_id;
+    $this->headers['x-api-key'] = $client_id;
   }
 
   /**
@@ -80,10 +86,7 @@ class Client {
    * @return void
    */
   public function setApiKey($api_key) {
-    $this->headers = [
-      'x-api-key' => $this->client_id,
-      'Authorization' => "Bearer {$api_key}"
-    ];
+    $this->headers['Authorization'] = "Bearer {$api_key}";
   }
 
   public function __call($method, $args) {
@@ -98,7 +101,7 @@ class Client {
     if($method == 'get' && count($args[1] ?? [])) {
       $uri .= "?".RequestUtil::prepareParameters($args[1]);
     }
-    if(in_array($method, ['post', 'put'])) {
+    if(in_array($method, ['post', 'put', 'patch'])) {
       if($file = RequestUtil::prepareFile($args[1] ?? [])) {
         $opts['multipart'] = $file;
       }
@@ -320,5 +323,32 @@ class Client {
       ),
       "+/", "-_"
     );
+  }
+
+  /**
+   * Check to confirm connectivity to the Etsy API.
+   *
+   * @link https://developers.etsy.com/documentation/reference#operation/ping
+   * @return integer|false
+   */
+  public function ping() {
+    $response = $this->get("/application/openapi-ping");
+    return $response->application_id ?? false;
+  }
+
+  /**
+   * Check the scopes of the current API key (client ID).
+   * 
+   * @link https://developers.etsy.com/documentation/reference/#operation/tokenScopes
+   * @param string $token
+   * @return array
+   */
+  public function scopes(
+    string $token
+  ): array {
+    $response = $this->post('/application/scopes', [
+      'token' => $token
+    ]);
+    return $response->scopes ?? [];
   }
 }

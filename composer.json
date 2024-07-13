@@ -1,6 +1,6 @@
 {
   "name": "rhysnhall/etsy-php-sdk",
-  "version": "0.3.2",
+  "version": "1.0",
   "description": "PHP SDK for Etsy API v3.",
   "type": "library",
   "keywords": [
@@ -18,7 +18,7 @@
     }
   ],
   "require": {
-    "php": ">=7.1",
+    "php": "^8.0",
     "guzzlehttp/guzzle": "^7.3"
   },
   "autoload": {

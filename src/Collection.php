@@ -38,6 +38,11 @@ class Collection {
   protected $_append = [];
 
   /**
+   * @var int
+   */
+  public $count = 0;
+
+  /**
    * @var array
    */
   public $data = [];
