@@ -27,7 +27,7 @@ class ListingInventory extends Resource {
    * @param array @params
    * @return \Etsy\Resources\ListingInventory
    */
-  public function get(
+  public static function get(
     int $listing_id,
     array $params = []
   ): ?\Etsy\Resources\ListingInventory {
