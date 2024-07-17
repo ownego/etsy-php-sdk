@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.0.1
+### Fixed issues
+* Correct ListingInventory::get to be a static method
+* Add support for params to Listing->inventory method
+
 ## v1.0
 ### Changes
 * Everything. Unfortunately, this is a breaking update.
