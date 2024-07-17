@@ -512,9 +512,10 @@ class Listing extends Resource {
    * 
    * @return \Etsy\Resources\ListingInventory
    */
-  public function inventory(): ?\Etsy\Resources\ListingInventory {
+  public function inventory(array $params = []): ?\Etsy\Resources\ListingInventory {
     return ListingInventory::get(
-      $this->listing_id
+      $this->listing_id,
+      $params
     );
   }
 
