@@ -1,0 +1,10 @@
+services:
+  etsy-php-sdk:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    image: customizer-network
+    container_name: etsy-php-sdk
+    working_dir: /var/www/
+    volumes:
+      - ./:/var/www
