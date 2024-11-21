@@ -52,7 +52,8 @@ class Client
      */
     public function __construct(
         string $client_id
-    ) {
+    )
+    {
         if (!trim($client_id)) {
             throw new OAuthException("No client ID found. A valid client ID is required.");
         }
@@ -106,7 +107,7 @@ class Client
         }
         $uri = $args[0];
         if ($method == 'get' && count($args[1] ?? [])) {
-            $uri .= "?".RequestUtil::prepareParameters($args[1]);
+            $uri .= "?" . RequestUtil::prepareParameters($args[1]);
         }
         if (in_array($method, ['post', 'put', 'patch'])) {
             if ($file = RequestUtil::prepareFile($args[1] ?? [])) {
@@ -121,7 +122,7 @@ class Client
         $opts['headers'] = $this->headers;
         try {
             $client = $this->createHttpClient();
-            $response = $client->{$method}(self::API_URL.$uri, $opts);
+            $response = $client->{$method}(self::API_URL . $uri, $opts);
             $response = json_decode($response->getBody(), false);
             if ($response) {
                 $response->uri = $uri;
@@ -158,17 +159,18 @@ class Client
         array  $scope,
         string $code_challenge,
         string $nonce
-    ): string {
+    ): string
+    {
         $params = [
-          "response_type" => "code",
-          "redirect_uri" => $redirect_uri,
-          "scope" => PermissionScopes::prepare($scope),
-          "client_id" => $this->client_id,
-          "state" => $nonce,
-          "code_challenge" => $code_challenge,
-          "code_challenge_method" => "S256"
+            "response_type" => "code",
+            "redirect_uri" => $redirect_uri,
+            "scope" => PermissionScopes::prepare($scope),
+            "client_id" => $this->client_id,
+            "state" => $nonce,
+            "code_challenge" => $code_challenge,
+            "code_challenge_method" => "S256"
         ];
-        return self::CONNECT_URL."/?".RequestUtil::prepareParameters($params);
+        return self::CONNECT_URL . "/?" . RequestUtil::prepareParameters($params);
     }
 
     /**
@@ -184,13 +186,14 @@ class Client
         string $redirect_uri,
         string $code,
         string $verifier
-    ): array {
+    ): array
+    {
         $params = [
-          "grant_type" => "authorization_code",
-          "client_id" => $this->client_id,
-          "redirect_uri" => $redirect_uri,
-          'code' => $code,
-          'code_verifier' => $verifier
+            "grant_type" => "authorization_code",
+            "client_id" => $this->client_id,
+            "redirect_uri" => $redirect_uri,
+            'code' => $code,
+            'code_verifier' => $verifier
         ];
         // Create a GuzzleHttp client.
         $client = $this->createHttpClient();
@@ -198,8 +201,9 @@ class Client
             $response = $client->post(self::TOKEN_URL, ['form_params' => $params]);
             $response = json_decode($response->getBody(), false);
             return [
-              'access_token' => $response->access_token,
-              'refresh_token' => $response->refresh_token
+                'access_token' => $response->access_token,
+                'refresh_token' => $response->refresh_token,
+                'expires_in' => $response->expires_in,
             ];
         } catch (\Exception $e) {
             $this->handleAccessTokenError($e);
@@ -215,11 +219,12 @@ class Client
      */
     public function refreshAccessToken(
         string $refresh_token
-    ): array {
+    ): array
+    {
         $params = [
-          'grant_type' => 'refresh_token',
-          'client_id' => $this->client_id,
-          'refresh_token' => $refresh_token
+            'grant_type' => 'refresh_token',
+            'client_id' => $this->client_id,
+            'refresh_token' => $refresh_token
         ];
         // Create a GuzzleHttp client.
         $client = $this->createHttpClient();
@@ -227,8 +232,9 @@ class Client
             $response = $client->post(self::TOKEN_URL, ['form_params' => $params]);
             $response = json_decode($response->getBody(), false);
             return [
-              'access_token' => $response->access_token,
-              'refresh_token' => $response->refresh_token
+                'access_token' => $response->access_token,
+                'refresh_token' => $response->refresh_token,
+                'expires_in' => $response->expires_in,
             ];
         } catch (\Exception $e) {
             $this->handleAccessTokenError($e);
@@ -244,11 +250,12 @@ class Client
      */
     public function exchangeLegacyToken(
         string $legacy_token
-    ): array {
+    ): array
+    {
         $params = [
-          "grant_type" => "token_exchange",
-          "client_id" => $this->client_id,
-          "legacy_token" => $legacy_token
+            "grant_type" => "token_exchange",
+            "client_id" => $this->client_id,
+            "legacy_token" => $legacy_token
         ];
         // Create a GuzzleHttp client.
         $client = $this->createHttpClient();
@@ -256,8 +263,8 @@ class Client
             $response = $client->post(self::TOKEN_URL, ['form_params' => $params]);
             $response = json_decode($response->getBody(), false);
             return [
-              'access_token' => $response->access_token,
-              'refresh_token' => $response->refresh_token
+                'access_token' => $response->access_token,
+                'refresh_token' => $response->refresh_token
             ];
         } catch (\Exception $e) {
             $this->handleAccessTokenError($e);
@@ -357,9 +364,10 @@ class Client
      */
     public function scopes(
         string $token
-    ): array {
+    ): array
+    {
         $response = $this->post('/application/scopes', [
-          'token' => $token
+            'token' => $token
         ]);
         return $response->scopes ?? [];
     }
